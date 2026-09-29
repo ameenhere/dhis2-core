@@ -642,6 +642,10 @@ public abstract class AbstractTrackerPersister<T extends TrackerDto, V extends I
 
     batch.stageTeavDelete(trackedEntityAttributeValue);
 
+    // Keep the in-memory object graph in sync with the staged DB write: the enrollment/event
+    // notifications fired as an import side effect render against this collection.
+    trackedEntity.removeAttributeValue(trackedEntityAttributeValue);
+
     changeLogs.addTrackedEntityChangeLog(
         trackedEntity,
         trackedEntityAttributeValue.getAttribute(),
@@ -672,6 +676,12 @@ public abstract class AbstractTrackerPersister<T extends TrackerDto, V extends I
       batch.stageTeavUpdate(trackedEntityAttributeValue);
       changeLogType = UPDATE;
     }
+
+    // Keep the in-memory object graph in sync with the staged DB write: the enrollment/event
+    // notifications fired as an import side effect render against this collection. On update within
+    // the same run the value object is reused, and the Set is keyed by attribute, so re-adding is a
+    // no-op rather than a duplicate.
+    trackedEntity.addAttributeValue(trackedEntityAttributeValue);
 
     changeLogs.addTrackedEntityChangeLog(
         trackedEntity,
