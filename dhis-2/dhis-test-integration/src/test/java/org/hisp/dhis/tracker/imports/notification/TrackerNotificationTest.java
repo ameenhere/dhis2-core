@@ -64,6 +64,7 @@ import org.hisp.dhis.tracker.TestSetup;
 import org.hisp.dhis.tracker.imports.TrackerImportParams;
 import org.hisp.dhis.tracker.imports.TrackerImportService;
 import org.hisp.dhis.tracker.imports.TrackerImportStrategy;
+import org.hisp.dhis.tracker.imports.domain.Attribute;
 import org.hisp.dhis.tracker.imports.domain.DataValue;
 import org.hisp.dhis.tracker.imports.domain.Enrollment;
 import org.hisp.dhis.tracker.imports.domain.MetadataIdentifier;
@@ -216,6 +217,65 @@ class TrackerNotificationTest extends PostgresIntegrationTestBase {
         .until(() -> !manager.getAll(MessageConversation.class).isEmpty());
 
     assertContainsOnly(List.of("value is Option one"), messageTexts());
+  }
+
+  @Test
+  void shouldRenderTrackedEntityAttributeValueInEnrollmentNotification() {
+    // Reproduces DHIS2-22187: an enrollment notification whose message references a tracked
+    // entity attribute via A{uid} renders "[N/A]" instead of the imported attribute value.
+    // The value is written to the DB by the JDBC persister but never added back to the in-memory
+    // TrackedEntity.trackedEntityAttributeValues collection that the renderer reads, so for a
+    // newly imported tracked entity the collection is empty at render time.
+    addLifecycleTemplate(
+        "attribute_subject",
+        "enrolled TE named A{dIVt4l5vIOa}",
+        NotificationTrigger.ENROLLMENT,
+        program);
+
+    // dIVt4l5vIOa ("TA First name", TEXT) is both a tracked entity type attribute of ja8NY4PW7Xm
+    // and a program attribute of BFcipDERJnf. Import a brand-new tracked entity carrying this
+    // attribute value through the tracker importer, together with its enrollment.
+    UID teUid = UID.generate();
+    UID enrollmentUid = UID.generate();
+
+    org.hisp.dhis.tracker.imports.domain.TrackedEntity trackedEntity =
+        org.hisp.dhis.tracker.imports.domain.TrackedEntity.builder()
+            .trackedEntity(teUid)
+            .trackedEntityType(MetadataIdentifier.ofUid("ja8NY4PW7Xm"))
+            .orgUnit(MetadataIdentifier.ofUid("h4w96yEMlzO"))
+            .attributes(
+                List.of(
+                    Attribute.builder()
+                        .attribute(MetadataIdentifier.ofUid("dIVt4l5vIOa"))
+                        .value("John")
+                        .build()))
+            .build();
+
+    Enrollment enrollment =
+        Enrollment.builder()
+            .enrollment(enrollmentUid)
+            .program(MetadataIdentifier.ofUid(program.getUid()))
+            .orgUnit(MetadataIdentifier.ofUid("h4w96yEMlzO"))
+            .trackedEntity(teUid)
+            .status(EnrollmentStatus.ACTIVE)
+            .enrolledAt(Instant.now())
+            .occurredAt(Instant.now())
+            .attributeOptionCombo(MetadataIdentifier.ofUid("HllvX50cXC0"))
+            .build();
+
+    assertNoErrors(
+        trackerImportService.importTracker(
+            TrackerImportParams.builder().importStrategy(TrackerImportStrategy.CREATE).build(),
+            TrackerObjects.builder()
+                .trackedEntities(List.of(trackedEntity))
+                .enrollments(List.of(enrollment))
+                .build()));
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .until(() -> !manager.getAll(MessageConversation.class).isEmpty());
+
+    assertContainsOnly(List.of("enrolled TE named John"), messageTexts());
   }
 
   @Test
@@ -448,6 +508,15 @@ class TrackerNotificationTest extends PostgresIntegrationTestBase {
 
   private void addLifecycleTemplate(String subject, NotificationTrigger trigger, Program p) {
     ProgramNotificationTemplate template = addNotificationTemplate(subject, trigger);
+    p.getNotificationTemplates().add(template);
+    manager.update(p);
+  }
+
+  private void addLifecycleTemplate(
+      String subject, String messageTemplate, NotificationTrigger trigger, Program p) {
+    ProgramNotificationTemplate template = addNotificationTemplate(subject, trigger);
+    template.setMessageTemplate(messageTemplate);
+    manager.update(template);
     p.getNotificationTemplates().add(template);
     manager.update(p);
   }
