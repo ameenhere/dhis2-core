@@ -30,6 +30,7 @@
 package org.hisp.dhis.tracker.audit;
 
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import org.hisp.dhis.audit.AuditOperationType;
@@ -99,19 +100,54 @@ public class DefaultTrackedEntityAuditService implements TrackedEntityAuditServi
   @Override
   @Transactional(readOnly = true)
   public List<TrackedEntityAudit> getTrackedEntityAudits(TrackedEntityAuditQueryParams params) {
-    UserDetails currentUser = CurrentUserUtil.getCurrentUserDetails();
-    return trackedEntityAuditStore.getTrackedEntityAudit(params).stream()
-        .filter(
-            a ->
-                trackerAccessManager
-                    .canRead(currentUser, manager.get(TrackedEntity.class, a.getTrackedEntity()))
-                    .isEmpty())
-        .toList();
+    return restrictToReadableTrackedEntities(params)
+        .map(trackedEntityAuditStore::getTrackedEntityAudit)
+        .orElse(List.of());
   }
 
   @Override
   @Transactional(readOnly = true)
   public int getTrackedEntityAuditsCount(TrackedEntityAuditQueryParams params) {
-    return trackedEntityAuditStore.getTrackedEntityAuditCount(params);
+    return restrictToReadableTrackedEntities(params)
+        .map(trackedEntityAuditStore::getTrackedEntityAuditCount)
+        .orElse(0);
+  }
+
+  /**
+   * Restricts the query to the requested tracked entities the current user can read, so that paging
+   * and counts are done in the database over readable audits only. Audits of tracked entities that
+   * no longer exist (audits outlive a hard delete) are only visible to superusers.
+   *
+   * @return the params to query with, or empty if a non-superuser can read none of the requested
+   *     tracked entities, or did not request any
+   */
+  private Optional<TrackedEntityAuditQueryParams> restrictToReadableTrackedEntities(
+      TrackedEntityAuditQueryParams params) {
+    UserDetails currentUser = CurrentUserUtil.getCurrentUserDetails();
+    if (currentUser.isSuper()) {
+      return Optional.of(params);
+    }
+
+    if (!params.hasTrackedEntities()) {
+      return Optional.empty();
+    }
+
+    List<String> readable =
+        manager.getByUid(TrackedEntity.class, params.getTrackedEntities()).stream()
+            .filter(te -> trackerAccessManager.canRead(currentUser, te).isEmpty())
+            .map(TrackedEntity::getUid)
+            .toList();
+    if (readable.isEmpty()) {
+      return Optional.empty();
+    }
+
+    return Optional.of(
+        new TrackedEntityAuditQueryParams()
+            .setTrackedEntities(readable)
+            .setUsers(params.getUsers())
+            .setAuditTypes(params.getAuditTypes())
+            .setStartDate(params.getStartDate())
+            .setEndDate(params.getEndDate())
+            .setPager(params.getPager()));
   }
 }

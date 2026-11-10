@@ -33,19 +33,25 @@ import static org.hisp.dhis.http.HttpAssertions.assertStatus;
 import static org.hisp.dhis.tracker.test.TrackerTestBase.createEnrollment;
 import static org.hisp.dhis.tracker.test.TrackerTestBase.createEvent;
 import static org.hisp.dhis.tracker.test.TrackerTestBase.createTrackedEntity;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.Set;
+import org.hisp.dhis.audit.AuditOperationType;
 import org.hisp.dhis.category.CategoryOptionCombo;
 import org.hisp.dhis.category.CategoryService;
 import org.hisp.dhis.common.CodeGenerator;
 import org.hisp.dhis.common.IdentifiableObjectManager;
 import org.hisp.dhis.http.HttpStatus;
+import org.hisp.dhis.jsontree.JsonObject;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.program.Program;
 import org.hisp.dhis.program.ProgramStage;
 import org.hisp.dhis.security.acl.AccessStringHelper;
 import org.hisp.dhis.test.webapi.H2ControllerIntegrationTestBase;
 import org.hisp.dhis.trackedentity.TrackedEntityType;
+import org.hisp.dhis.tracker.audit.TrackedEntityAudit;
+import org.hisp.dhis.tracker.audit.TrackedEntityAuditStore;
 import org.hisp.dhis.tracker.model.Enrollment;
 import org.hisp.dhis.tracker.model.TrackedEntity;
 import org.hisp.dhis.tracker.model.TrackerEvent;
@@ -62,6 +68,8 @@ class AuditControllerTest extends H2ControllerIntegrationTestBase {
   @Autowired private IdentifiableObjectManager manager;
 
   @Autowired private CategoryService categoryService;
+
+  @Autowired private TrackedEntityAuditStore trackedEntityAuditStore;
 
   private CategoryOptionCombo coc;
 
@@ -158,6 +166,80 @@ class AuditControllerTest extends H2ControllerIntegrationTestBase {
             "/audits/trackedEntity?tei={te}&trackedEntities={te}",
             te1.getUid() + ";" + te2.getUid(),
             te1.getUid() + "," + te2.getUid()));
+  }
+
+  @Test
+  void shouldGetTrackedEntityAuditsWithoutTrackedEntitiesParameterAsSuperuser() {
+    addTrackedEntityAudits(te1, 2);
+    addTrackedEntityAudits(te2, 1);
+
+    JsonObject response = GET("/audits/trackedEntity").content(HttpStatus.OK);
+
+    assertEquals(3, response.getArray("trackedEntityAudits").size());
+    assertEquals(3, response.getNumber("pager.total").intValue());
+  }
+
+  @Test
+  void shouldFailToGetTrackedEntityAuditsWithoutTrackedEntitiesParameterAsNonSuperuser() {
+    switchContextToUser(user);
+
+    assertStatus(HttpStatus.BAD_REQUEST, GET("/audits/trackedEntity"));
+  }
+
+  @Test
+  void shouldPageTrackedEntityAudits() {
+    addTrackedEntityAudits(te1, 3);
+
+    JsonObject page =
+        GET("/audits/trackedEntity?trackedEntities={te}&pageSize=2&page=2", te1.getUid())
+            .content(HttpStatus.OK);
+
+    assertEquals(1, page.getArray("trackedEntityAudits").size());
+    assertEquals(2, page.getNumber("pager.page").intValue());
+    assertEquals(2, page.getNumber("pager.pageSize").intValue());
+    assertEquals(3, page.getNumber("pager.total").intValue());
+  }
+
+  @Test
+  void shouldNotPageTrackedEntityAuditsWhenPagingIsSkipped() {
+    addTrackedEntityAudits(te1, 3);
+
+    JsonObject response =
+        GET("/audits/trackedEntity?trackedEntities={te}&pageSize=2&paging=false", te1.getUid())
+            .content(HttpStatus.OK);
+
+    assertEquals(3, response.getArray("trackedEntityAudits").size());
+    assertFalse(response.has("pager"));
+  }
+
+  @Test
+  void shouldOnlyCountReadableTrackedEntityAuditsAsNonSuperuser() {
+    program.setTrackedEntityType(trackedEntityType);
+    manager.update(program);
+    addTrackedEntityAudits(te1, 2);
+    TrackedEntity notReadable = createTrackedEntity(anotherOrgUnit, trackedEntityType);
+    manager.save(notReadable, false);
+    addTrackedEntityAudits(notReadable, 3);
+    // audits outlive their tracked entity when it is hard deleted
+    trackedEntityAuditStore.addTrackedEntityAudit(
+        new TrackedEntityAudit("deletedTe01", "admin", AuditOperationType.READ));
+    switchContextToUser(user);
+
+    JsonObject response =
+        GET(
+                "/audits/trackedEntity?trackedEntities={te}",
+                String.join(",", te1.getUid(), notReadable.getUid(), "deletedTe01"))
+            .content(HttpStatus.OK);
+
+    assertEquals(2, response.getArray("trackedEntityAudits").size());
+    assertEquals(2, response.getNumber("pager.total").intValue());
+  }
+
+  private void addTrackedEntityAudits(TrackedEntity trackedEntity, int count) {
+    for (int i = 0; i < count; i++) {
+      trackedEntityAuditStore.addTrackedEntityAudit(
+          new TrackedEntityAudit(trackedEntity.getUid(), "admin", AuditOperationType.READ));
+    }
   }
 
   private TrackedEntityType trackedEntityTypeAccessible() {
