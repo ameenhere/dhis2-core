@@ -66,6 +66,7 @@ import org.hisp.dhis.dxf2.webmessage.WebMessageException;
 import org.hisp.dhis.dxf2.webmessage.responses.FileResourceWebMessageResponse;
 import org.hisp.dhis.external.conf.ConfigurationKey;
 import org.hisp.dhis.external.conf.DhisConfigurationProvider;
+import org.hisp.dhis.feedback.BadRequestException;
 import org.hisp.dhis.fieldfilter.FieldFilterParams;
 import org.hisp.dhis.fieldfilter.FieldFilterService;
 import org.hisp.dhis.fieldfiltering.FieldPreset;
@@ -83,7 +84,9 @@ import org.hisp.dhis.tracker.audit.TrackedEntityAudit;
 import org.hisp.dhis.tracker.audit.TrackedEntityAuditService;
 import org.hisp.dhis.tracker.export.FileResourceStream;
 import org.hisp.dhis.tracker.model.TrackedEntity;
+import org.hisp.dhis.user.CurrentUser;
 import org.hisp.dhis.user.User;
+import org.hisp.dhis.user.UserDetails;
 import org.hisp.dhis.webapi.service.ContextService;
 import org.hisp.dhis.webapi.utils.HeaderUtils;
 import org.springframework.http.HttpHeaders;
@@ -295,7 +298,13 @@ public class AuditController {
       @RequestParam(required = false) Boolean skipPaging,
       @RequestParam(required = false) Boolean paging,
       @RequestParam(required = false, defaultValue = "50") int pageSize,
-      @RequestParam(required = false, defaultValue = "1") int page) {
+      @RequestParam(required = false, defaultValue = "1") int page,
+      @CurrentUser UserDetails currentUser)
+      throws BadRequestException {
+    if ((trackedEntities == null || trackedEntities.isEmpty()) && !currentUser.isSuper()) {
+      throw new BadRequestException("Parameter `trackedEntities` is required");
+    }
+
     List<String> fields = Lists.newArrayList(contextService.getParameterValues("fields"));
 
     if (fields.isEmpty()) {
@@ -306,7 +315,7 @@ public class AuditController {
 
     TrackedEntityAuditQueryParams params =
         new TrackedEntityAuditQueryParams()
-            .setTrackedEntities(UID.toValueList(trackedEntities))
+            .setTrackedEntities(UID.toValueList(emptyIfNull(trackedEntities)))
             .setUsers(user)
             .setAuditTypes(auditOperationTypes)
             .setStartDate(startDate)
@@ -316,12 +325,12 @@ public class AuditController {
     Pager pager = null;
 
     if (PagerUtils.isSkipPaging(skipPaging, paging)) {
+      teAudits = trackedEntityAuditService.getTrackedEntityAudits(params);
+    } else {
       int total = trackedEntityAuditService.getTrackedEntityAuditsCount(params);
 
       pager = new Pager(page, total, pageSize);
 
-      teAudits = trackedEntityAuditService.getTrackedEntityAudits(params);
-    } else {
       teAudits = trackedEntityAuditService.getTrackedEntityAudits(params.setPager(pager));
     }
 
