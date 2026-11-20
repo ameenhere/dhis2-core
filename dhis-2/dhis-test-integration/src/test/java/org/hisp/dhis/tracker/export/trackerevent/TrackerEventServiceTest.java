@@ -52,7 +52,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.hisp.dhis.category.Category;
+import org.hisp.dhis.category.CategoryCombo;
 import org.hisp.dhis.category.CategoryOption;
+import org.hisp.dhis.category.CategoryOptionCombo;
 import org.hisp.dhis.common.IdentifiableObject;
 import org.hisp.dhis.common.IdentifiableObjectManager;
 import org.hisp.dhis.common.UID;
@@ -60,14 +63,18 @@ import org.hisp.dhis.dataelement.DataElement;
 import org.hisp.dhis.eventdatavalue.EventDataValue;
 import org.hisp.dhis.feedback.BadRequestException;
 import org.hisp.dhis.feedback.ForbiddenException;
+import org.hisp.dhis.feedback.NotFoundException;
 import org.hisp.dhis.note.Note;
 import org.hisp.dhis.organisationunit.OrganisationUnit;
 import org.hisp.dhis.program.Program;
 import org.hisp.dhis.program.ProgramStage;
 import org.hisp.dhis.test.integration.PostgresIntegrationTestBase;
+import org.hisp.dhis.tracker.Page;
+import org.hisp.dhis.tracker.PageParams;
 import org.hisp.dhis.tracker.TestSetup;
 import org.hisp.dhis.tracker.export.trackerevent.TrackerEventOperationParams.TrackerEventOperationParamsBuilder;
 import org.hisp.dhis.tracker.imports.domain.TrackerObjects;
+import org.hisp.dhis.tracker.model.Enrollment;
 import org.hisp.dhis.tracker.model.Relationship;
 import org.hisp.dhis.tracker.model.RelationshipItem;
 import org.hisp.dhis.tracker.model.TrackedEntity;
@@ -721,6 +728,52 @@ class TrackerEventServiceTest extends PostgresIntegrationTestBase {
         dataElements(events.get(0)));
   }
 
+  @Test
+  void shouldReturnEventWhenEnrollmentAttributeOptionComboReadable()
+      throws ForbiddenException, BadRequestException {
+    setEnrollmentAttributeOptionCombo("D9PbzJY8bJM", DATA_READ);
+    injectSecurityContextUser(userService.getUser("Z7870757a75"));
+
+    List<String> events =
+        getEvents(TrackerEventOperationParams.builderForEvent(UID.of("D9PbzJY8bJM")).build());
+
+    assertContainsOnly(List.of("D9PbzJY8bJM"), events);
+  }
+
+  @Test
+  void shouldNotReturnEventWhenEnrollmentAttributeOptionComboNotReadable()
+      throws ForbiddenException, BadRequestException {
+    setEnrollmentAttributeOptionCombo("D9PbzJY8bJM", DEFAULT);
+    injectSecurityContextUser(userService.getUser("Z7870757a75"));
+
+    assertIsEmpty(
+        getEvents(TrackerEventOperationParams.builderForEvent(UID.of("D9PbzJY8bJM")).build()));
+  }
+
+  @Test
+  void shouldNotCountEventWhenEnrollmentAttributeOptionComboNotReadable()
+      throws ForbiddenException, BadRequestException {
+    setEnrollmentAttributeOptionCombo("D9PbzJY8bJM", DEFAULT);
+    injectSecurityContextUser(userService.getUser("Z7870757a75"));
+
+    Page<TrackerEvent> page =
+        trackerEventService.findEvents(
+            TrackerEventOperationParams.builderForEvent(UID.of("D9PbzJY8bJM")).build(),
+            PageParams.of(1, 10, true));
+
+    assertIsEmpty(page.getItems());
+    assertEquals(0L, page.getTotal());
+  }
+
+  @Test
+  void shouldNotFindEventWhenEnrollmentAttributeOptionComboNotReadable() {
+    setEnrollmentAttributeOptionCombo("D9PbzJY8bJM", DEFAULT);
+    injectSecurityContextUser(userService.getUser("Z7870757a75"));
+
+    assertThrows(
+        NotFoundException.class, () -> trackerEventService.getEvent(UID.of("D9PbzJY8bJM")));
+  }
+
   private <T extends IdentifiableObject> T get(Class<T> type, String uid) {
     T t = manager.get(type, uid);
     assertNotNull(
@@ -750,5 +803,34 @@ class TrackerEventServiceTest extends PostgresIntegrationTestBase {
       IdentifiableObject identifiableObject, String publicAccess) {
     identifiableObject.getSharing().setPublicAccess(publicAccess);
     manager.save(identifiableObject);
+  }
+
+  /**
+   * Sets the attribute option combo of the enrollment of the given event to a new one made of a
+   * single category option with the given public sharing. The event attribute option combo stays
+   * unchanged.
+   */
+  private void setEnrollmentAttributeOptionCombo(String event, String categoryOptionSharing) {
+    CategoryOption categoryOption = createCategoryOption('E');
+    categoryOption.getSharing().setPublicAccess(categoryOptionSharing);
+    manager.save(categoryOption, false);
+
+    Category category = createCategory('E');
+    category.setCategoryOptions(List.of(categoryOption));
+    manager.save(category, false);
+
+    CategoryCombo categoryCombo = createCategoryCombo('E');
+    categoryCombo.setCategories(List.of(category));
+    manager.save(categoryCombo, false);
+
+    CategoryOptionCombo attributeOptionCombo = createCategoryOptionCombo('E');
+    attributeOptionCombo.setCategoryCombo(categoryCombo);
+    attributeOptionCombo.setCategoryOptions(Set.of(categoryOption));
+    manager.save(attributeOptionCombo, false);
+
+    Enrollment enrollment = get(TrackerEvent.class, event).getEnrollment();
+    enrollment.setAttributeOptionCombo(attributeOptionCombo);
+    manager.update(enrollment);
+    manager.flush();
   }
 }
