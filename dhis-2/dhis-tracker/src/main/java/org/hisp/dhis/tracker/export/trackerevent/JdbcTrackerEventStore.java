@@ -517,7 +517,7 @@ left join dataelement de on de.uid = eventdatavalue.dataelement_uid
     addLeftJoinOnAssignedUser(sql);
     addJoinOnCategoryOptionCombo(sql, user);
     addAttributeJoins(sql, "left", params.getLeftJoinAttributes());
-    addWhereConditions(sql, sqlParams, params);
+    addWhereConditions(sql, sqlParams, params, user);
     return sql.toString();
   }
 
@@ -561,7 +561,7 @@ left join dataelement de on de.uid = eventdatavalue.dataelement_uid
     addAttributeJoins(sql, "inner", params.getInnerJoinAttributes());
     addAttributeJoins(sql, "left", params.getNullFilteredAttributes());
     addJoinOnCategoryOptionCombo(sql, user);
-    addCountWhereConditions(sql, sqlParams, params, needsProgramAndTrackedEntityJoin);
+    addCountWhereConditions(sql, sqlParams, params, needsProgramAndTrackedEntityJoin, user);
 
     return sql.toString();
   }
@@ -570,7 +570,8 @@ left join dataelement de on de.uid = eventdatavalue.dataelement_uid
       StringBuilder sql,
       MapSqlParameterSource sqlParams,
       TrackerEventQueryParams params,
-      boolean hasTrackedEntityJoin) {
+      boolean hasTrackedEntityJoin,
+      UserDetails user) {
     SqlHelper hlp = new SqlHelper(true);
     addDataElementConditions(sql, sqlParams, params, hlp);
     addAttributeFilterConditions(sql, sqlParams, params, hlp);
@@ -591,6 +592,7 @@ left join dataelement de on de.uid = eventdatavalue.dataelement_uid
     addAssignedUserConditions(sql, sqlParams, params, hlp);
     addDeletedCondition(sql, params, hlp);
     addEnrollmentUidConditions(sql, sqlParams, params, hlp);
+    addEnrollmentAttributeOptionComboCondition(sql, hlp, user);
   }
 
   /**
@@ -869,7 +871,10 @@ left join dataelement de on de.uid = eventdatavalue.dataelement_uid
   }
 
   private void addWhereConditions(
-      StringBuilder sql, MapSqlParameterSource sqlParams, TrackerEventQueryParams params) {
+      StringBuilder sql,
+      MapSqlParameterSource sqlParams,
+      TrackerEventQueryParams params,
+      UserDetails user) {
     SqlHelper hlp = new SqlHelper(true);
     addDataElementConditions(sql, sqlParams, params, hlp);
     addAttributeFilterConditions(sql, sqlParams, params, hlp);
@@ -886,6 +891,7 @@ left join dataelement de on de.uid = eventdatavalue.dataelement_uid
     addAssignedUserConditions(sql, sqlParams, params, hlp);
     addDeletedCondition(sql, params, hlp);
     addEnrollmentUidConditions(sql, sqlParams, params, hlp);
+    addEnrollmentAttributeOptionComboCondition(sql, hlp, user);
   }
 
   private void addDataElementConditions(
@@ -1167,6 +1173,27 @@ left join dataelement de on de.uid = eventdatavalue.dataelement_uid
       StringBuilder sql, TrackerEventQueryParams params, SqlHelper hlp) {
     if (!params.isIncludeDeleted()) {
       sql.append(hlp.whereAnd()).append(" ev.deleted is false ");
+    }
+  }
+
+  /**
+   * Restricts events to those whose enrollment has an attribute option combo readable by the
+   * current user, meaning the user has data read access to every one of its category options. A
+   * user who cannot see an enrollment must not see any event in it.
+   */
+  private void addEnrollmentAttributeOptionComboCondition(
+      StringBuilder sql, SqlHelper hlp, UserDetails user) {
+    if (isNotSuperUser(user)) {
+      sql.append(hlp.whereAnd())
+          .append(" en.attributeoptioncomboid not in (")
+          .append(
+              "select cocco.categoryoptioncomboid from categoryoptioncombos_categoryoptions cocco ")
+          .append("inner join categoryoption co on co.categoryoptionid = cocco.categoryoptionid ")
+          .append("where not coalesce((")
+          .append(
+              JpaQueryUtils.generateSQlQueryForSharingCheck(
+                  "co.sharing", user, AclService.LIKE_READ_DATA))
+          .append("), false)) ");
     }
   }
 
