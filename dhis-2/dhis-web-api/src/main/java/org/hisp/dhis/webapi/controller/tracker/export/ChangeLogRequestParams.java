@@ -96,5 +96,12 @@ Valid `sortDirection`s are `asc` and `desc`. `sortDirection` is case-insensitive
 """)
   private List<OrderCriteria> order = new ArrayList<>();
 
+  @OpenApi.Description(
+"""
+`<propertyName>:eq:<value>`
+
+Get items matching the given filter. Only one filter can be specified, and the only supported
+operator is `eq`. The properties that can be filtered by depend on the endpoint.
+""")
   private String filter;
 }
