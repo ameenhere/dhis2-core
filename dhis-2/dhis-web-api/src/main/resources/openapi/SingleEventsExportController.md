@@ -232,6 +232,15 @@ updated in the last 2 days. Cannot be combined with `updatedAfter` or `updatedBe
 
 Get single events with the specified event status.
 
+### `*.parameter.SingleEventRequestParams.attributeCategoryCombo`
+
+The attribute category combination UID of the attribute option combination to get single events
+for. The attribute option combination is identified by an attribute category combination together
+with its attribute category options. This endpoint does not support `attributeCategoryOptions`, so
+any request with `attributeCategoryCombo` currently fails with status 409 (`E2040`). To filter
+events by attribute option combination, use `/tracker/events` with both `attributeCategoryCombo`
+and `attributeCategoryOptions`.
+
 ### `*.parameter.SingleEventRequestParams.includeDeleted`
 
 Get soft-deleted single events by specifying `includeDeleted=true`. Soft-deleted events are

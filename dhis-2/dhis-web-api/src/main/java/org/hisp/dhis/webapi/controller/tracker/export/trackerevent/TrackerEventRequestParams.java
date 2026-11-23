@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hisp.dhis.category.CategoryOptionCombo;
+import org.hisp.dhis.category.CategoryCombo;
 import org.hisp.dhis.common.AssignedUserSelectionMode;
 import org.hisp.dhis.common.OpenApi;
 import org.hisp.dhis.common.OrderCriteria;
@@ -153,7 +153,7 @@ will take more time to return.**
 
   private EventStatus status;
 
-  @OpenApi.Property({UID.class, CategoryOptionCombo.class})
+  @OpenApi.Property({UID.class, CategoryCombo.class})
   private UID attributeCategoryCombo;
 
   private boolean includeDeleted = false;

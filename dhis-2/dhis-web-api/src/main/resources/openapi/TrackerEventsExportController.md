@@ -298,6 +298,15 @@ response.
 
 Get tracker events with the specified event status.
 
+### `*.parameter.TrackerEventRequestParams.attributeCategoryCombo`
+
+The attribute category combination UID of the attribute option combination to get tracker events
+for. The attribute option combination is identified by an attribute category combination together
+with its attribute category options. This endpoint does not support `attributeCategoryOptions`, so
+any request with `attributeCategoryCombo` currently fails with status 409 (`E2040`). To filter
+events by attribute option combination, use `/tracker/events` with both `attributeCategoryCombo`
+and `attributeCategoryOptions`.
+
 ### `*.parameter.TrackerEventRequestParams.includeDeleted`
 
 Get soft-deleted tracker events by specifying `includeDeleted=true`. Soft-deleted events are
