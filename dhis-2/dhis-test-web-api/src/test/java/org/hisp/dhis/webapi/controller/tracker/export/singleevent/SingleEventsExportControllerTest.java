@@ -159,6 +159,33 @@ class SingleEventsExportControllerTest extends PostgresControllerIntegrationTest
   }
 
   @Test
+  void shouldReturnSingleEventsWhenFilteringByAttributeOptionCombo() {
+    JsonMixed content =
+        GET(
+                "/tracker/singleEvents?program={program}&attributeOptionCombo={aoc}&fields=event,attributeOptionCombo",
+                PROGRAM_UID,
+                "SeWJkpLAyLt")
+            .content(HttpStatus.OK);
+
+    JsonList<JsonEvent> events = content.getList("singleEvents", JsonEvent.class);
+    assertHasSize(1, events.stream().toList());
+    assertEquals(EVENT_UID, events.get(0).getEvent());
+    assertEquals("SeWJkpLAyLt", events.get(0).attributeOptionCombo());
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenFilteringByNonExistentAttributeOptionCombo() {
+    assertEquals(
+        "Attribute option combo does not exist: Ue6zgkxIi3X",
+        GET(
+                "/tracker/singleEvents?program={program}&attributeOptionCombo={aoc}",
+                PROGRAM_UID,
+                "Ue6zgkxIi3X")
+            .error(HttpStatus.BAD_REQUEST)
+            .getMessage());
+  }
+
+  @Test
   void shouldReturnSingleEventsWhenFilteringByOrgUnit() {
     JsonMixed content =
         GET("/tracker/singleEvents?program={program}&orgUnit={orgUnit}", PROGRAM_UID, ORG_UNIT_UID)

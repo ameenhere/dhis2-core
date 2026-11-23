@@ -137,7 +137,7 @@ class TrackerEventRequestParamsMapper {
                 applyIfNotNull(
                     eventRequestParams.getEnrollmentOccurredAfter(), StartDateTime::toDate))
             .eventStatus(eventRequestParams.getStatus())
-            .attributeCategoryCombo(eventRequestParams.getAttributeCategoryCombo())
+            .attributeOptionCombo(eventRequestParams.getAttributeOptionCombo())
             .events(eventRequestParams.getEvents())
             .enrollments(eventRequestParams.getEnrollments())
             .includeDeleted(eventRequestParams.isIncludeDeleted())

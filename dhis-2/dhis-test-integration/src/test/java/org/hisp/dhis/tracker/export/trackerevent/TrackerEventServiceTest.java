@@ -382,6 +382,49 @@ class TrackerEventServiceTest extends PostgresIntegrationTestBase {
   }
 
   @Test
+  void shouldReturnEventsGivenAttributeOptionCombo()
+      throws ForbiddenException, BadRequestException {
+    TrackerEventOperationParams params =
+        TrackerEventOperationParams.builderForProgram(UID.of("shPjYNifvMK"))
+            .orgUnit(UID.of("uoNW0E3xXUy"))
+            .orgUnitMode(SELECTED)
+            .attributeOptionCombo(UID.of("cr89ebDZrac"))
+            .build();
+
+    List<TrackerEvent> events = trackerEventService.findEvents(params);
+
+    assertContainsOnly(List.of("jxgFyJEMUPf"), uids(events));
+  }
+
+  @Test
+  void shouldFailWhenAttributeOptionComboDoesNotExist() {
+    TrackerEventOperationParams params =
+        TrackerEventOperationParams.builderForProgram(UID.of("shPjYNifvMK"))
+            .orgUnit(UID.of("uoNW0E3xXUy"))
+            .orgUnitMode(SELECTED)
+            .attributeOptionCombo(UID.of("Ue6zgkxIi3X"))
+            .build();
+
+    BadRequestException exception =
+        assertThrows(BadRequestException.class, () -> trackerEventService.findEvents(params));
+    assertEquals("Attribute option combo does not exist: Ue6zgkxIi3X", exception.getMessage());
+  }
+
+  @Test
+  void shouldFailWhenAttributeOptionComboIsCombinedWithCategoryComboAndOptions() {
+    TrackerEventOperationParams params =
+        TrackerEventOperationParams.builderForProgram(UID.of("shPjYNifvMK"))
+            .orgUnit(UID.of("uoNW0E3xXUy"))
+            .orgUnitMode(SELECTED)
+            .attributeOptionCombo(UID.of("cr89ebDZrac"))
+            .attributeCategoryCombo(UID.of("O4VaNks6tta"))
+            .attributeCategoryOptions(UID.of("xwZ2u3WyQR0", "M58XdOfhiJ7"))
+            .build();
+
+    assertThrows(BadRequestException.class, () -> trackerEventService.findEvents(params));
+  }
+
+  @Test
   void shouldReturnEventsGivenCategoryOptionCombo() throws ForbiddenException, BadRequestException {
     TrackerEventOperationParams params =
         TrackerEventOperationParams.builderForProgram(UID.of("shPjYNifvMK"))
