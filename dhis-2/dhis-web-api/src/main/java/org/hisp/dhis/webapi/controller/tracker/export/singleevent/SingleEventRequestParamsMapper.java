@@ -105,7 +105,7 @@ class SingleEventRequestParamsMapper {
                 applyIfNotNull(eventRequestParams.getUpdatedBefore(), EndDateTime::toDate))
             .updatedWithin(eventRequestParams.getUpdatedWithin())
             .eventStatus(eventRequestParams.getStatus())
-            .attributeOptionCombo(eventRequestParams.getAttributeOptionCombo())
+            .attributeCategoryCombo(eventRequestParams.getAttributeCategoryCombo())
             .events(eventRequestParams.getEvents())
             .includeDeleted(eventRequestParams.isIncludeDeleted())
             .fields(

@@ -87,12 +87,6 @@ public class SingleEventOperationParams {
 
   @Builder.Default private Set<UID> attributeCategoryOptions = Collections.emptySet();
 
-  /**
-   * Attribute option combo to filter events by. Cannot be combined with {@link
-   * #attributeCategoryCombo} and {@link #attributeCategoryOptions}.
-   */
-  private UID attributeOptionCombo;
-
   private CategoryOptionCombo categoryOptionCombo;
 
   private boolean includeRelationships;

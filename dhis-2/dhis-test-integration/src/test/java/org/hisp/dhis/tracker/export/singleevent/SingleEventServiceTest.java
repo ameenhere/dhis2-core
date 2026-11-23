@@ -358,49 +358,6 @@ class SingleEventServiceTest extends PostgresIntegrationTestBase {
   }
 
   @Test
-  void shouldReturnEventsGivenAttributeOptionCombo()
-      throws ForbiddenException, BadRequestException {
-    SingleEventOperationParams params =
-        operationParamsBuilder
-            .orgUnit(UID.of("DiszpKrYNg8"))
-            .orgUnitMode(SELECTED)
-            .attributeOptionCombo(UID.of("cr89ebDZrac"))
-            .build();
-
-    List<SingleEvent> events = singleEventService.findEvents(params);
-
-    assertContainsOnly(List.of("kWjSezkXHVp", "OTmjvJDn0Fu"), uids(events));
-  }
-
-  @Test
-  void shouldFailWhenAttributeOptionComboDoesNotExist() {
-    SingleEventOperationParams params =
-        operationParamsBuilder
-            .orgUnit(UID.of("DiszpKrYNg8"))
-            .orgUnitMode(SELECTED)
-            .attributeOptionCombo(UID.of("Ue6zgkxIi3X"))
-            .build();
-
-    BadRequestException exception =
-        assertThrows(BadRequestException.class, () -> singleEventService.findEvents(params));
-    assertEquals("Attribute option combo does not exist: Ue6zgkxIi3X", exception.getMessage());
-  }
-
-  @Test
-  void shouldFailWhenAttributeOptionComboIsCombinedWithCategoryComboAndOptions() {
-    SingleEventOperationParams params =
-        operationParamsBuilder
-            .orgUnit(UID.of("DiszpKrYNg8"))
-            .orgUnitMode(SELECTED)
-            .attributeOptionCombo(UID.of("cr89ebDZrac"))
-            .attributeCategoryCombo(UID.of("O4VaNks6tta"))
-            .attributeCategoryOptions(UID.of("xwZ2u3WyQR0", "M58XdOfhiJ7"))
-            .build();
-
-    assertThrows(BadRequestException.class, () -> singleEventService.findEvents(params));
-  }
-
-  @Test
   void shouldReturnEventsGivenCategoryOptionCombo() throws ForbiddenException, BadRequestException {
     SingleEventOperationParams params =
         operationParamsBuilder

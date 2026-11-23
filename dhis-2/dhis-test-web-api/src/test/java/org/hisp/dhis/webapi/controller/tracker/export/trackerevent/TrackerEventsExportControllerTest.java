@@ -163,37 +163,6 @@ class TrackerEventsExportControllerTest extends PostgresControllerIntegrationTes
   }
 
   @Test
-  void shouldReturnTrackerEventsWhenFilteringByAttributeOptionCombo() {
-    JsonMixed content =
-        GET(
-                "/tracker/trackerEvents?program={program}&attributeOptionCombo={aoc}&fields=event,attributeOptionCombo",
-                PROGRAM_UID,
-                "HllvX50cXC0")
-            .content(HttpStatus.OK);
-
-    JsonList<JsonEvent> events = content.getList("trackerEvents", JsonEvent.class);
-    assertFalse(events.isEmpty());
-    events.forEach(
-        event ->
-            assertEquals(
-                "HllvX50cXC0",
-                event.attributeOptionCombo(),
-                "attributeOptionCombo should match filter"));
-  }
-
-  @Test
-  void shouldReturnBadRequestWhenFilteringByNonExistentAttributeOptionCombo() {
-    assertEquals(
-        "Attribute option combo does not exist: Ue6zgkxIi3X",
-        GET(
-                "/tracker/trackerEvents?program={program}&attributeOptionCombo={aoc}",
-                PROGRAM_UID,
-                "Ue6zgkxIi3X")
-            .error(HttpStatus.BAD_REQUEST)
-            .getMessage());
-  }
-
-  @Test
   void shouldReturnTrackerEventsWhenFilteringByOrgUnit() {
     JsonMixed content =
         GET("/tracker/trackerEvents?program={program}&orgUnit={orgUnit}", PROGRAM_UID, ORG_UNIT_UID)

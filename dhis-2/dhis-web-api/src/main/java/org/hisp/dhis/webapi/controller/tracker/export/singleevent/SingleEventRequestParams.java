@@ -121,7 +121,7 @@ will take more time to return.**
   private EventStatus status;
 
   @OpenApi.Property({UID.class, CategoryOptionCombo.class})
-  private UID attributeOptionCombo;
+  private UID attributeCategoryCombo;
 
   private boolean includeDeleted = false;
 

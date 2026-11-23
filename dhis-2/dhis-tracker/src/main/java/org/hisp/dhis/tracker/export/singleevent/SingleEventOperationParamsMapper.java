@@ -88,7 +88,13 @@ class SingleEventOperationParamsMapper {
         validateRequestedOrgUnit(applyIfNotNull(operationParams.getOrgUnit(), UID::getValue), user);
     validateOrgUnitMode(operationParams.getOrgUnitMode(), program, user);
 
-    CategoryOptionCombo attributeOptionCombo = getAttributeOptionCombo(operationParams);
+    CategoryOptionCombo attributeOptionCombo =
+        categoryOptionComboService.getAttributeOptionCombo(
+            operationParams.getAttributeCategoryCombo() != null
+                ? operationParams.getAttributeCategoryCombo().getValue()
+                : null,
+            UID.toValueSet(operationParams.getAttributeCategoryOptions()),
+            true);
 
     validateAttributeOptionCombo(attributeOptionCombo, user);
 
@@ -150,32 +156,6 @@ class SingleEventOperationParamsMapper {
     }
 
     return orgUnit;
-  }
-
-  /**
-   * Gets the attribute option combo to filter by, either given by its UID or by its attribute
-   * category combo and attribute category options. Returns null if none of them are given.
-   */
-  private CategoryOptionCombo getAttributeOptionCombo(SingleEventOperationParams operationParams)
-      throws BadRequestException {
-    if (operationParams.getAttributeOptionCombo() == null) {
-      return categoryOptionComboService.getAttributeOptionCombo(
-          operationParams.getAttributeCategoryCombo() != null
-              ? operationParams.getAttributeCategoryCombo().getValue()
-              : null,
-          UID.toValueSet(operationParams.getAttributeCategoryOptions()),
-          true);
-    }
-
-    if (operationParams.getAttributeCategoryCombo() != null
-        || !operationParams.getAttributeCategoryOptions().isEmpty()) {
-      throw new BadRequestException(
-          "attributeOptionCombo cannot be combined with attributeCategoryCombo and"
-              + " attributeCategoryOptions");
-    }
-
-    return categoryOptionComboService.getAttributeOptionCombo(
-        operationParams.getAttributeOptionCombo());
   }
 
   private void validateAttributeOptionCombo(

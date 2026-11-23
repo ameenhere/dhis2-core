@@ -298,12 +298,6 @@ response.
 
 Get tracker events with the specified event status.
 
-### `*.parameter.TrackerEventRequestParams.attributeOptionCombo`
-
-Get tracker events with the specified attribute option combination UID. The request fails with status
-400 if the attribute option combination does not exist, and with status 403 if the user has no data
-read access to it.
-
 ### `*.parameter.TrackerEventRequestParams.includeDeleted`
 
 Get soft-deleted tracker events by specifying `includeDeleted=true`. Soft-deleted events are
