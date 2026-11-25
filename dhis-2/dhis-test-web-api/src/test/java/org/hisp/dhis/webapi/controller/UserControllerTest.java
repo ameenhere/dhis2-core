@@ -86,6 +86,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.transaction.annotation.Transactional;
@@ -155,6 +156,35 @@ class UserControllerTest extends H2ControllerIntegrationTestBase {
         .content(HttpStatus.OK);
 
     assertTrue(sessionRegistry.getAllSessions(sessionPrincipal, false).isEmpty());
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {"organisationUnits", "dataViewOrganisationUnits", "teiSearchOrganisationUnits"})
+  void updateOrgUnitScopeShouldInvalidateUserSessions(String scope) {
+    OrganisationUnit orgUnit = createOrganisationUnit('S');
+    organisationUnitService.addOrganisationUnit(orgUnit);
+    UserDetails sessionPrincipal = userService.createUserDetails(peter);
+    sessionRegistry.registerNewSession("session-" + scope, sessionPrincipal);
+    assertFalse(sessionRegistry.getAllSessions(sessionPrincipal, false).isEmpty());
+
+    PATCH(
+            "/users/" + peter.getUid(),
+            "[{'op':'add','path':'/" + scope + "','value':[{'id':'" + orgUnit.getUid() + "'}]}]")
+        .content(HttpStatus.OK);
+
+    assertTrue(sessionRegistry.getAllSessions(sessionPrincipal, false).isEmpty());
+  }
+
+  @Test
+  void updateUnrelatedPropertyShouldNotInvalidateUserSessions() {
+    UserDetails sessionPrincipal = userService.createUserDetails(peter);
+    sessionRegistry.registerNewSession("session-unrelated", sessionPrincipal);
+
+    PATCH("/users/" + peter.getUid(), "[{'op':'replace','path':'/firstName','value':'Pan'}]")
+        .content(HttpStatus.OK);
+
+    assertFalse(sessionRegistry.getAllSessions(sessionPrincipal, false).isEmpty());
   }
 
   @Test

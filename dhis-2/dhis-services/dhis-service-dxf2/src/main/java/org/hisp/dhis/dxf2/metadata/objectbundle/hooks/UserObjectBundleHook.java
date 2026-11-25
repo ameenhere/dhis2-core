@@ -180,7 +180,10 @@ public class UserObjectBundleHook extends AbstractObjectBundleHook<User> {
     if (user == null) return;
 
     bundle.putExtras(user, PRE_UPDATE_USER_KEY, user);
-    bundle.putExtras(persisted, INVALIDATE_SESSIONS_KEY, userRolesUpdated(user, persisted));
+    bundle.putExtras(
+        persisted,
+        INVALIDATE_SESSIONS_KEY,
+        userRolesUpdated(user, persisted) || orgUnitScopesUpdated(user, persisted));
 
     if (persisted.getAvatar() != null
         && (user.getAvatar() == null
@@ -195,6 +198,28 @@ public class UserObjectBundleHook extends AbstractObjectBundleHook<User> {
         fileResourceService.updateFileResource(fileResource);
       }
     }
+  }
+
+  /**
+   * The capture, data view and search org units are copied into the session principal ({@link
+   * org.hisp.dhis.user.UserDetails}) at login, so a change must end the user's sessions for the new
+   * scopes to take effect (DHIS2-10866).
+   */
+  private static boolean orgUnitScopesUpdated(User user, User persisted) {
+    return !Objects.equals(
+            uids(user.getOrganisationUnits()), uids(persisted.getOrganisationUnits()))
+        || !Objects.equals(
+            uids(user.getDataViewOrganisationUnits()),
+            uids(persisted.getDataViewOrganisationUnits()))
+        || !Objects.equals(
+            uids(user.getTeiSearchOrganisationUnits()),
+            uids(persisted.getTeiSearchOrganisationUnits()));
+  }
+
+  private static Set<String> uids(Set<OrganisationUnit> orgUnits) {
+    return orgUnits == null
+        ? Set.of()
+        : orgUnits.stream().map(OrganisationUnit::getUid).collect(Collectors.toSet());
   }
 
   private Boolean userRolesUpdated(User preUpdateUser, User persistedUser) {
